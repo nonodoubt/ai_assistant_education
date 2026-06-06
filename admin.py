@@ -1,211 +1,545 @@
-"""
-admin.py — Админ-панель для просмотра логов чат-бота.
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Админ-панель — ДДТ «Союз»</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Montserrat',sans-serif;background:#f0f4f8;color:#1c232e}
+.login{max-width:360px;margin:120px auto;background:white;padding:32px;border-radius:12px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.08);text-align:center}
+.login h2{color:#003366;margin-bottom:16px}
+.login input{width:100%;padding:12px;border:2px solid #d8e2ec;border-radius:8px;
+  font-family:inherit;font-size:14px;margin-bottom:12px;outline:none}
+.login input:focus{border-color:#005CA9}
+.login button{width:100%;padding:12px;background:#005CA9;color:white;border:none;
+  border-radius:8px;font-family:inherit;font-size:14px;cursor:pointer}
+.login button:hover{background:#003366}
+.login .error{color:#e74c3c;font-size:13px;margin-top:8px}
 
-Запуск:
-    streamlit run admin.py --server.port 8502
+.admin{max-width:1100px;margin:0 auto;padding:20px}
+.admin h1{color:#003366;margin-bottom:20px;font-size:24px}
+.admin h2{color:#005CA9;margin:24px 0 12px;font-size:18px}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px}
+.metric{background:white;border-radius:10px;padding:16px;text-align:center;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);border:1px solid #e8eef5}
+.metric .value{font-size:28px;font-weight:700;color:#003366}
+.metric .label{font-size:12px;color:#5a7a9a;margin-top:4px}
+.tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:8px 16px;background:#e8eef5;border:none;border-radius:8px 8px 0 0;
+  font-family:inherit;font-size:13px;cursor:pointer;color:#1c232e}
+.tab.active{background:#005CA9;color:white}
 
-Показывает:
-- Общую статистику (сессии, сообщения, лайки/дизлайки)
-- Список сессий с возможностью провалиться в каждую
-- Список ответов с дизлайками (для анализа проблемных запросов)
-- Список ответов с лайками (что работает хорошо)
-"""
-import os, sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+.filters{background:white;border-radius:10px;padding:14px 16px;margin-bottom:14px;
+  border:1px solid #e8eef5;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.filters .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:10px 14px;margin-bottom:10px}
+.filters label{display:flex;flex-direction:column;font-size:11px;color:#5a7a9a;gap:3px}
+.filters input,.filters select{padding:7px 9px;border:1px solid #d8e2ec;border-radius:6px;
+  font-family:inherit;font-size:13px;outline:none;color:#1c232e;background:white}
+.filters input:focus,.filters select:focus{border-color:#005CA9}
+.range{display:flex;gap:5px;align-items:center}
+.range input{flex:1;min-width:0}
+.range span{color:#8a9ab5;font-size:11px}
+.filters-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn-primary{padding:7px 16px;background:#005CA9;color:white;border:none;border-radius:6px;
+  font-family:inherit;font-size:13px;cursor:pointer;font-weight:500}
+.btn-primary:hover{background:#003366}
+.btn-secondary{padding:7px 16px;background:#e8eef5;color:#1c232e;border:none;border-radius:6px;
+  font-family:inherit;font-size:13px;cursor:pointer}
+.btn-secondary:hover{background:#d8e2ec}
+.filters .hint{color:#8a9ab5;font-size:11px;margin-left:auto}
 
-import streamlit as st
-from datetime import datetime
-import json
+.dirs-chips{display:flex;flex-wrap:wrap;gap:5px;max-height:80px;overflow-y:auto;
+  padding:5px 7px;border:1px solid #d8e2ec;border-radius:6px;background:white}
+.dir-chip{padding:3px 9px;border-radius:12px;background:#f0f4f8;border:1px solid #d8e2ec;
+  font-size:11px;cursor:pointer;transition:all .15s;color:#1c232e;white-space:nowrap}
+.dir-chip:hover{background:#e0e8f0}
+.dir-chip.on{background:#005CA9;color:white;border-color:#005CA9}
 
-from services.logging.chat_logger import ChatLogger
+.session-card{background:white;border-radius:10px;margin-bottom:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);border:1px solid #e8eef5;overflow:hidden}
+.session-header{padding:11px 16px;background:#f8fafc;border-bottom:1px solid #e8eef5;
+  cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.session-header:hover{background:#e8f0fe}
+.session-header .meta-line{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.session-tags{display:flex;gap:4px;flex-wrap:wrap;max-width:50%}
+.session-tag{font-size:10px;padding:2px 7px;background:#e8f0fe;color:#005CA9;
+  border-radius:10px;white-space:nowrap}
+.session-body{padding:16px;display:none}
+.session-body.open{display:block}
+.msg-row{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #f0f4f8}
+.msg-row:last-child{border-bottom:none}
+.msg-role{font-weight:600;font-size:13px;margin-bottom:4px}
+.msg-role.user{color:#005CA9}
+.msg-role.bot{color:#003366}
+.msg-content{font-size:14px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word}
+.msg-meta{font-size:11px;color:#8a9ab5;margin-top:4px}
+.survey-row{background:white;border-radius:10px;padding:14px 16px;margin-bottom:8px;
+  border:1px solid #e8eef5;font-size:13px}
+.logout{position:fixed;top:12px;right:12px;padding:8px 16px;background:#e74c3c;color:white;
+  border:none;border-radius:6px;font-family:inherit;cursor:pointer;font-size:12px}
+.back-link{display:inline-block;margin-bottom:16px;font-size:13px}
+pre{background:#f8fafc;padding:12px;border-radius:8px;font-size:12px;overflow-x:auto;
+  border:1px solid #e8eef5}
 
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-CHAT_LOGS_DB = os.path.join(PROJECT_ROOT, "data", "chat_logs.db")
+.pager{display:flex;justify-content:center;align-items:center;gap:6px;margin:18px 0;flex-wrap:wrap}
+.pager button{padding:6px 12px;border:1px solid #d8e2ec;background:white;border-radius:6px;
+  font-family:inherit;font-size:13px;cursor:pointer;color:#1c232e;min-width:36px}
+.pager button:hover:not(:disabled){background:#e8f0fe;border-color:#005CA9}
+.pager button.cur{background:#005CA9;color:white;border-color:#005CA9}
+.pager button:disabled{opacity:.4;cursor:not-allowed}
+.pager .info{font-size:12px;color:#5a7a9a;margin:0 8px}
 
-st.set_page_config(page_title="Админ-панель ДДТ Союз", page_icon="📊",
-                   layout="wide", initial_sidebar_state="expanded")
+.dirs-table{width:100%;background:white;border-radius:10px;overflow:hidden;
+  border:1px solid #e8eef5;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+.dirs-table th,.dirs-table td{padding:10px 14px;text-align:left;font-size:13px;
+  border-bottom:1px solid #f0f4f8}
+.dirs-table th{background:#f8fafc;color:#003366;font-weight:600;font-size:12px}
+.dirs-table tr:last-child td{border-bottom:none}
+.dirs-table .bar{display:inline-block;height:7px;background:#005CA9;border-radius:3px;
+  vertical-align:middle;margin-right:7px;min-width:2px}
+.dirs-table .num{font-weight:600;color:#003366}
 
+.loading{text-align:center;color:#8a9ab5;padding:30px;font-size:13px}
+.empty{text-align:center;color:#8a9ab5;padding:30px;font-size:13px}
+</style>
+</head>
+<body>
+<div id="admin-app"></div>
 
-@st.cache_resource
-def get_logger():
-    return ChatLogger(CHAT_LOGS_DB)
+<script>
+const {createApp, ref, reactive, computed, nextTick} = Vue;
 
+createApp({
+  setup(){
+    const authed = ref(false);
+    const pwd = ref('');
+    const error = ref('');
 
-def fmt_time(iso_str):
-    if not iso_str:
-        return "—"
-    try:
-        dt = datetime.fromisoformat(iso_str)
-        return dt.strftime("%d.%m %H:%M:%S")
-    except Exception:
-        return iso_str[:19]
+    const stats = ref(null);
+    const surveyAvg = ref(null);
+    const disliked = ref([]);
+    const liked = ref([]);
+    const surveys = ref([]);
+    const keyStats = ref('');
+    const tab = ref('sessions');
+    const openSessions = ref({});
 
+    const sessionsData = ref({sessions:[], total:0, page:1, pages:1, page_size:15});
+    const sessionsLoading = ref(false);
+    const allDirections = ref([]);
 
-def main():
-    st.title("📊 Админ-панель ДДТ «Союз»")
+    const filters = reactive({
+      date_from:'', date_to:'',
+      duration_min:'', duration_max:'',
+      user_msg_min:'', user_msg_max:'',
+      likes_min:'', likes_max:'',
+      dislikes_min:'', dislikes_max:'',
+      directions: [],
+      page: 1,
+      page_size: 15,
+    });
 
-    if not os.path.exists(CHAT_LOGS_DB):
-        st.warning("База логов ещё пуста. Запустите бота и сделайте несколько запросов.")
-        st.code(f"Ожидаемый путь: {CHAT_LOGS_DB}")
-        return
+    const dirsSummary = ref([]);
+    const dirsDateFrom = ref('');
+    const dirsDateTo = ref('');
 
-    logger = get_logger()
+    async function login(){
+      const r = await fetch('/api/admin/login',{method:'POST',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pwd.value})});
+      if(r.ok){authed.value=true; loadAll();}
+      else error.value='Неверный пароль';
+    }
 
-    # ─── Sidebar ───
-    with st.sidebar:
-        st.markdown("### Навигация")
-        view = st.radio("Раздел", ["Обзор", "Сессии", "Дизлайки", "Лайки"])
-        st.markdown("---")
-        if st.button("🔄 Обновить данные"):
-            st.cache_resource.clear()
-            st.rerun()
+    async function loadAll(){
+      const [s,dl,lk,sv,ks,dirs] = await Promise.all([
+        fetch('/api/admin/stats').then(r=>r.json()),
+        fetch('/api/admin/disliked').then(r=>r.json()),
+        fetch('/api/admin/liked').then(r=>r.json()),
+        fetch('/api/admin/surveys').then(r=>r.json()),
+        fetch('/api/admin/key_stats').then(r=>r.json()),
+        fetch('/api/admin/directions').then(r=>r.json()),
+      ]);
+      stats.value=s.stats; surveyAvg.value=s.survey_averages;
+      disliked.value=dl; liked.value=lk;
+      surveys.value=sv; keyStats.value=ks.report;
+      allDirections.value = dirs.all_directions || [];
+      dirsSummary.value = dirs.summary || [];
+      await loadSessions();
+    }
 
-    # ─── Обзор ───
-    if view == "Обзор":
-        st.subheader("Общая статистика")
-        stats = logger.get_summary_stats()
+    function buildSessionsQuery(){
+      const q = new URLSearchParams();
+      q.set('page', String(filters.page));
+      q.set('page_size', String(filters.page_size));
+      const sendIf = (key, val) => {
+        if (val !== '' && val !== null && val !== undefined) q.set(key, String(val));
+      };
+      sendIf('date_from', filters.date_from);
+      sendIf('date_to', filters.date_to);
+      sendIf('duration_min', filters.duration_min);
+      sendIf('duration_max', filters.duration_max);
+      sendIf('user_msg_min', filters.user_msg_min);
+      sendIf('user_msg_max', filters.user_msg_max);
+      sendIf('likes_min', filters.likes_min);
+      sendIf('likes_max', filters.likes_max);
+      sendIf('dislikes_min', filters.dislikes_min);
+      sendIf('dislikes_max', filters.dislikes_max);
+      if (filters.directions.length) q.set('directions', filters.directions.join('|'));
+      return q.toString();
+    }
 
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Сессий", stats['total_sessions'])
-        col2.metric("Сообщений", stats['total_messages'])
-        col3.metric("👍 Лайков", stats['likes'])
-        col4.metric("👎 Дизлайков", stats['dislikes'])
+    async function loadSessions(){
+      sessionsLoading.value = true;
+      try{
+        const r = await fetch('/api/admin/sessions?' + buildSessionsQuery());
+        sessionsData.value = await r.json();
+        openSessions.value = {};
+      } finally {
+        sessionsLoading.value = false;
+      }
+    }
 
-        col1, col2 = st.columns(2)
-        col1.metric("От пользователей", stats['user_messages'])
-        col2.metric("От бота", stats['assistant_messages'])
+    function applyFilters(){
+      filters.page = 1;
+      // Обновляем список направлений перед каждым применением фильтра —
+      // так новые направления, которые появились после загрузки страницы,
+      // сразу становятся доступны в чипах (решает баг с единственным вхождением).
+      fetch('/api/admin/directions').then(r=>r.json()).then(j=>{
+        allDirections.value = j.all_directions || [];
+      }).catch(()=>{});
+      loadSessions();
+    }
 
-        st.metric("Средн. сообщений на сессию", stats['avg_messages_per_session'])
+    function resetFilters(){
+      filters.date_from=''; filters.date_to='';
+      filters.duration_min=''; filters.duration_max='';
+      filters.user_msg_min=''; filters.user_msg_max='';
+      filters.likes_min=''; filters.likes_max='';
+      filters.dislikes_min=''; filters.dislikes_max='';
+      filters.directions = [];
+      filters.page = 1;
+      loadSessions();
+    }
 
-        if stats['likes'] + stats['dislikes'] > 0:
-            satisfaction = stats['likes'] / (stats['likes'] + stats['dislikes']) * 100
-            st.markdown(f"### Уровень удовлетворённости: **{satisfaction:.1f}%**")
-            st.progress(satisfaction / 100)
+    function toggleDir(d){
+      const i = filters.directions.indexOf(d);
+      if (i === -1) filters.directions.push(d);
+      else filters.directions.splice(i, 1);
+    }
 
-    # ─── Сессии ───
-    elif view == "Сессии":
-        st.subheader("Последние сессии")
-        sessions = logger.get_recent_sessions(limit=50)
+    function goPage(p){
+      if (p < 1 || p > sessionsData.value.pages) return;
+      filters.page = p;
+      loadSessions();
+    }
 
-        if not sessions:
-            st.info("Сессий пока нет")
-            return
+    const pageNumbers = computed(() => {
+      const cur = sessionsData.value.page;
+      const total = sessionsData.value.pages;
+      const set = new Set([1, total, cur-2, cur-1, cur, cur+1, cur+2]);
+      return [...set].filter(p => p >= 1 && p <= total).sort((a,b)=>a-b);
+    });
 
-        # Таблица
-        for s in sessions:
-            with st.expander(
-                f"🕐 {fmt_time(s['started_at'])} · "
-                f"💬 {s['message_count']} сообщ. · "
-                f"👍{s['feedback_likes']} 👎{s['feedback_dislikes']} · "
-                f"`{s['session_id'][:8]}`"
-            ):
-                msgs = logger.get_session_messages(s['session_id'])
-                if not msgs:
-                    st.text("(пусто)")
-                    continue
+    async function reloadDirsSummary(){
+      const q = new URLSearchParams();
+      if (dirsDateFrom.value) q.set('date_from', dirsDateFrom.value);
+      if (dirsDateTo.value)   q.set('date_to', dirsDateTo.value);
+      const r = await fetch('/api/admin/directions?' + q.toString());
+      const j = await r.json();
+      dirsSummary.value = j.summary || [];
+    }
 
-                for m in msgs:
-                    if m['role'] == 'user':
-                        st.markdown(f"**👤 Пользователь** _{fmt_time(m['timestamp'])}_")
-                        st.markdown(f"> {m['content']}")
-                    else:
-                        fb = ""
-                        if m['feedback'] == 'like':
-                            fb = " 👍"
-                        elif m['feedback'] == 'dislike':
-                            fb = " 👎"
-                        st.markdown(f"**🤖 Бот**{fb} _{fmt_time(m['timestamp'])}_")
+    function applyDirAsFilter(d){
+      filters.directions = [d];
+      filters.page = 1;
+      tab.value = 'sessions';
+      loadSessions();
+    }
 
-                        # Метаданные ответа
-                        meta_parts = []
-                        if m.get('response_time_seconds'):
-                            meta_parts.append(f"{m['response_time_seconds']:.1f}с")
-                        if m.get('model_used'):
-                            meta_parts.append(m['model_used'])
-                        if m.get('llm_calls'):
-                            meta_parts.append(f"LLM×{m['llm_calls']}")
-                        if m.get('keywords'):
-                            try:
-                                kws = json.loads(m['keywords'])
-                                meta_parts.append(f"kw: {', '.join(kws[:5])}")
-                            except Exception:
-                                pass
-                        if meta_parts:
-                            st.caption(" | ".join(meta_parts))
+    function toggleSession(sid){ openSessions.value[sid] = !openSessions.value[sid]; }
+    function fmt(ts){return ts?ts.substring(0,16).replace('T',' '):'?';}
+    function fmtDuration(sec){
+      if (sec == null) return '?';
+      sec = Math.round(sec);
+      if (sec < 60) return sec + 'с';
+      const m = Math.floor(sec/60), s = sec%60;
+      if (m < 60) return m + 'м ' + s + 'с';
+      const h = Math.floor(m/60), mm = m%60;
+      return h + 'ч ' + mm + 'м';
+    }
+    function logout(){
+      fetch('/api/admin/logout', {method:'POST'}).catch(()=>{});
+      authed.value=false; pwd.value='';
+    }
+    function goToSession(sid){
+      tab.value='sessions';
+      resetFilters();
+      nextTick(()=>{
+        const tryOpen = () => {
+          if (sessionsLoading.value){ setTimeout(tryOpen, 100); return; }
+          openSessions.value[sid] = true;
+          nextTick(()=>{
+            const el = document.querySelector('[data-sid="'+sid+'"]');
+            if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+          });
+        };
+        tryOpen();
+      });
+    }
 
-                        st.markdown(m['content'])
-                    st.markdown("---")
+    return {authed,pwd,error,stats,surveyAvg,disliked,liked,surveys,keyStats,tab,
+      openSessions,sessionsData,sessionsLoading,allDirections,filters,dirsSummary,
+      dirsDateFrom,dirsDateTo,pageNumbers,
+      login,loadAll,loadSessions,applyFilters,resetFilters,toggleDir,goPage,
+      reloadDirsSummary,applyDirAsFilter,toggleSession,fmt,fmtDuration,logout,goToSession};
+  },
+  template: `
+  <div v-if="!authed" class="login">
+    <h2>🔐 Админ-панель</h2>
+    <input v-model="pwd" type="password" placeholder="Пароль" @keyup.enter="login">
+    <button @click="login">Войти</button>
+    <div v-if="error" class="error">{{error}}</div>
+  </div>
 
-    # ─── Дизлайки ───
-    elif view == "Дизлайки":
-        st.subheader("Ответы с дизлайком (требуют внимания)")
-        disliked = logger.get_disliked_messages(limit=100)
+  <div v-else class="admin">
+    <button class="logout" @click="logout">Выйти</button>
+    <a href="/" class="back-link">← На главную</a>
+    <h1>📊 Панель администратора</h1>
 
-        if not disliked:
-            st.success("Дизлайков пока нет!")
-            return
+    <div v-if="stats" class="metrics">
+      <div class="metric"><div class="value">{{stats.total_sessions}}</div><div class="label">Сессий</div></div>
+      <div class="metric"><div class="value">{{stats.total_messages}}</div><div class="label">Сообщений</div></div>
+      <div class="metric"><div class="value">{{stats.likes}}</div><div class="label">👍 Лайков</div></div>
+      <div class="metric"><div class="value">{{stats.dislikes}}</div><div class="label">👎 Дизлайков</div></div>
+      <div class="metric"><div class="value">{{stats.surveys||0}}</div><div class="label">📝 Отзывов</div></div>
+    </div>
 
-        st.info(f"Найдено: {len(disliked)}")
+    <div v-if="surveyAvg && surveyAvg.cnt>0" class="metrics">
+      <div class="metric"><div class="value">{{(surveyAvg.avg_q1||0).toFixed(1)}}</div><div class="label">Удовлетв.</div></div>
+      <div class="metric"><div class="value">{{(surveyAvg.avg_q3||0).toFixed(1)}}</div><div class="label">Рекомендация</div></div>
+      <div class="metric"><div class="value">{{(surveyAvg.avg_q5||0).toFixed(1)}}</div><div class="label">Релевантность</div></div>
+    </div>
 
-        for d in disliked:
-            with st.container():
-                st.markdown(f"**🕐 {fmt_time(d.get('feedback_timestamp', d['timestamp']))}**")
-                st.markdown(f"**👤 Вопрос:** {d.get('user_question', '(не найден)')}")
+    <div class="tabs">
+      <button :class="['tab',{active:tab==='sessions'}]" @click="tab='sessions'">Все сессии</button>
+      <button :class="['tab',{active:tab==='directions'}]" @click="tab='directions'">📈 Направления</button>
+      <button :class="['tab',{active:tab==='disliked'}]" @click="tab='disliked'">👎 Дизлайки</button>
+      <button :class="['tab',{active:tab==='liked'}]" @click="tab='liked'">👍 Лайки</button>
+      <button :class="['tab',{active:tab==='surveys'}]" @click="tab='surveys'">📝 Отзывы</button>
+      <button :class="['tab',{active:tab==='keys'}]" @click="tab='keys'">🔑 Ключи</button>
+    </div>
 
-                meta_parts = []
-                if d.get('response_time_seconds'):
-                    meta_parts.append(f"{d['response_time_seconds']:.1f}с")
-                if d.get('model_used'):
-                    meta_parts.append(d['model_used'])
-                if d.get('keywords'):
-                    try:
-                        kws = json.loads(d['keywords'])
-                        meta_parts.append(f"kw: {', '.join(kws[:5])}")
-                    except Exception:
-                        pass
-                if meta_parts:
-                    st.caption(" | ".join(meta_parts))
+    <div v-if="tab==='sessions'">
+      <div class="filters">
+        <div class="row">
+          <label>Дата от<input type="date" v-model="filters.date_from"></label>
+          <label>Дата до<input type="date" v-model="filters.date_to"></label>
+          <label>Длительность сессии, сек
+            <div class="range">
+              <input type="number" min="0" placeholder="мин" v-model="filters.duration_min">
+              <span>–</span>
+              <input type="number" min="0" placeholder="макс" v-model="filters.duration_max">
+            </div>
+          </label>
+          <label>Сообщений от клиента
+            <div class="range">
+              <input type="number" min="0" placeholder="мин" v-model="filters.user_msg_min">
+              <span>–</span>
+              <input type="number" min="0" placeholder="макс" v-model="filters.user_msg_max">
+            </div>
+          </label>
+          <label>Лайков
+            <div class="range">
+              <input type="number" min="0" placeholder="мин" v-model="filters.likes_min">
+              <span>–</span>
+              <input type="number" min="0" placeholder="макс" v-model="filters.likes_max">
+            </div>
+          </label>
+          <label>Дизлайков
+            <div class="range">
+              <input type="number" min="0" placeholder="мин" v-model="filters.dislikes_min">
+              <span>–</span>
+              <input type="number" min="0" placeholder="макс" v-model="filters.dislikes_max">
+            </div>
+          </label>
+          <label>На странице
+            <select v-model.number="filters.page_size" @change="applyFilters">
+              <option :value="15">15</option>
+              <option :value="30">30</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+            </select>
+          </label>
+        </div>
+        <label style="display:block;font-size:11px;color:#5a7a9a;margin-bottom:5px">
+          Направления (кликните для выбора нескольких)
+        </label>
+        <div class="dirs-chips" style="margin-bottom:10px">
+          <span v-for="d in allDirections" :key="d"
+                :class="['dir-chip',{on:filters.directions.includes(d)}]"
+                @click="toggleDir(d)">{{d}}</span>
+          <span v-if="!allDirections.length" style="color:#8a9ab5;font-size:11px">справочник пуст</span>
+        </div>
+        <div class="filters-actions">
+          <button class="btn-primary" @click="applyFilters">Применить</button>
+          <button class="btn-secondary" @click="resetFilters">Сбросить</button>
+          <span class="hint">Найдено: <b>{{sessionsData.total}}</b> сессий</span>
+        </div>
+      </div>
 
-                st.markdown(f"**🤖 Ответ:**")
-                st.markdown(f"> {d['content']}")
-                st.caption(f"Сессия: `{d['session_id'][:8]}`")
-                st.markdown("---")
+      <div v-if="sessionsLoading" class="loading">Загрузка…</div>
+      <div v-else-if="!sessionsData.sessions.length" class="empty">
+        Сессий по фильтру не найдено
+      </div>
+      <template v-else>
+        <div v-for="s in sessionsData.sessions" :key="s.session_id"
+             class="session-card" :data-sid="s.session_id">
+          <div class="session-header" @click="toggleSession(s.session_id)">
+            <span class="meta-line">
+              🕐 {{fmt(s.started_at)}} ·
+              ⏱{{fmtDuration(s.duration_seconds)}} ·
+              💬{{s.user_msg_count != null ? s.user_msg_count : s.message_count}} от клиента ·
+              👍{{s.feedback_likes}} 👎{{s.feedback_dislikes}}
+            </span>
+            <span class="session-tags">
+              <span v-for="d in (s.directions||[])" :key="d" class="session-tag">{{d}}</span>
+            </span>
+            <span>{{openSessions[s.session_id]?'▲':'▼'}}</span>
+          </div>
+          <div :class="['session-body',{open:openSessions[s.session_id]}]">
+            <div v-for="m in s.messages" :key="m.id" class="msg-row">
+              <div :class="['msg-role',m.role==='user'?'user':'bot']">
+                {{m.role==='user'?'👤 Пользователь':'🤖 Бот'}}
+                {{m.feedback==='like'?' 👍':m.feedback==='dislike'?' 👎':''}}
+              </div>
+              <div class="msg-content">{{m.content}}</div>
+              <div v-if="m.role==='assistant'" class="msg-meta">
+                <span v-if="m.response_time_seconds">⏱{{m.response_time_seconds.toFixed(1)}}s</span>
+                <span v-if="m.model_used"> · 🧠{{m.model_used}}</span>
+                <span v-if="m.llm_calls"> · LLM×{{m.llm_calls}}</span>
+                <span v-if="m.keywords"> · 🔑{{JSON.parse(m.keywords||'[]').join(', ')}}</span>
+                <span v-if="m.age_collected"> · 👶{{m.age_collected}} лет</span>
+              </div>
+              <div v-if="m.role==='assistant' && m.served_directions"
+                   class="msg-meta" style="margin-top:3px">
+                <span style="color:#005CA9;font-weight:500">📌 выдано:</span>
+                <span v-for="d in JSON.parse(m.served_directions||'[]')" :key="d"
+                      class="session-tag" style="margin-left:4px">{{d}}</span>
+              </div>
+              <div v-else-if="m.role==='assistant'" class="msg-meta"
+                   style="margin-top:3px;color:#b8c2d0;font-style:italic">
+                📌 без выдачи программ (FAQ / кнопка / уточнение)
+              </div>
+            </div>
+          </div>
+        </div>
 
-    # ─── Лайки ───
-    elif view == "Лайки":
-        st.subheader("Ответы с лайком (что работает хорошо)")
-        liked = logger.get_liked_messages(limit=100)
+        <div class="pager">
+          <button @click="goPage(1)" :disabled="sessionsData.page<=1">«</button>
+          <button @click="goPage(sessionsData.page-1)" :disabled="sessionsData.page<=1">‹</button>
+          <button v-for="p in pageNumbers" :key="p"
+                  :class="{cur:p===sessionsData.page}" @click="goPage(p)">{{p}}</button>
+          <button @click="goPage(sessionsData.page+1)" :disabled="sessionsData.page>=sessionsData.pages">›</button>
+          <button @click="goPage(sessionsData.pages)" :disabled="sessionsData.page>=sessionsData.pages">»</button>
+          <span class="info">Стр. {{sessionsData.page}} из {{sessionsData.pages}}</span>
+        </div>
+      </template>
+    </div>
 
-        if not liked:
-            st.info("Лайков пока нет")
-            return
+    <div v-if="tab==='directions'">
+      <div class="filters">
+        <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+          <label>Дата от<input type="date" v-model="dirsDateFrom"></label>
+          <label>Дата до<input type="date" v-model="dirsDateTo"></label>
+        </div>
+        <div class="filters-actions">
+          <button class="btn-primary" @click="reloadDirsSummary">Обновить</button>
+          <span class="hint">Всего направлений: <b>{{dirsSummary.length}}</b></span>
+        </div>
+      </div>
+      <div v-if="!dirsSummary.length" class="empty">
+        За выбранный период направления не определились.
+      </div>
+      <table v-else class="dirs-table">
+        <thead><tr>
+          <th>Направление</th>
+          <th style="text-align:right">Сессий</th>
+          <th style="text-align:right">Сообщений</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+          <tr v-for="(row, i) in dirsSummary" :key="row.direction">
+            <td>{{row.direction}}</td>
+            <td style="text-align:right">
+              <span class="bar" :style="{width: Math.round(120 * row.sessions / dirsSummary[0].sessions) + 'px'}"></span>
+              <span class="num">{{row.sessions}}</span>
+            </td>
+            <td style="text-align:right" class="num">{{row.messages}}</td>
+            <td style="text-align:right">
+              <button class="btn-secondary" style="font-size:12px;padding:4px 10px"
+                      @click="applyDirAsFilter(row.direction)">показать сессии →</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-        st.success(f"Найдено: {len(liked)}")
+    <div v-if="tab==='disliked'">
+      <div v-if="!disliked.length" class="empty">Дизлайков нет</div>
+      <div v-for="d in disliked" :key="d.id" class="session-card">
+        <div class="session-header">
+          <span class="meta-line">👎 {{fmt(d.feedback_timestamp)}} · Q: {{(d.user_question||'').substring(0,80)}}</span>
+        </div>
+        <div class="session-body open">
+          <div class="msg-content">{{d.content}}</div>
+          <div class="msg-meta" v-if="d.keywords">🔑 {{JSON.parse(d.keywords||'[]').join(', ')}}</div>
+          <a href="#" @click.prevent="goToSession(d.session_id)" style="font-size:12px;color:#005CA9;margin-top:6px;display:block">
+            📋 Открыть полную переписку
+          </a>
+        </div>
+      </div>
+    </div>
 
-        for d in liked:
-            with st.container():
-                st.markdown(f"**🕐 {fmt_time(d.get('feedback_timestamp', d['timestamp']))}**")
-                st.markdown(f"**👤 Вопрос:** {d.get('user_question', '(не найден)')}")
+    <div v-if="tab==='liked'">
+      <div v-if="!liked.length" class="empty">Лайков нет</div>
+      <div v-for="d in liked" :key="d.id" class="session-card">
+        <div class="session-header">
+          <span class="meta-line">👍 {{fmt(d.feedback_timestamp)}} · Q: {{(d.user_question||'').substring(0,80)}}</span>
+        </div>
+        <div class="session-body open">
+          <div class="msg-content">{{d.content}}</div>
+          <a href="#" @click.prevent="goToSession(d.session_id)" style="font-size:12px;color:#005CA9;margin-top:6px;display:block">
+            📋 Открыть полную переписку
+          </a>
+        </div>
+      </div>
+    </div>
 
-                meta_parts = []
-                if d.get('response_time_seconds'):
-                    meta_parts.append(f"{d['response_time_seconds']:.1f}с")
-                if d.get('model_used'):
-                    meta_parts.append(d['model_used'])
-                if d.get('keywords'):
-                    try:
-                        kws = json.loads(d['keywords'])
-                        meta_parts.append(f"kw: {', '.join(kws[:5])}")
-                    except Exception:
-                        pass
-                if meta_parts:
-                    st.caption(" | ".join(meta_parts))
+    <div v-if="tab==='surveys'">
+      <div v-if="!surveys.length" class="empty">Отзывов нет</div>
+      <div v-for="s in surveys" :key="s.id" class="survey-row">
+        <strong>{{fmt(s.timestamp)}}</strong> ·
+        Удовл: <b>{{s.q1_satisfaction}}</b>/5 ·
+        Рекоменд: <b>{{s.q3_recommend}}</b>/5 ·
+        Релев: <b>{{s.q5_relevance}}</b>/5
+        <span v-if="s.comment"> · 💬 <em>{{s.comment}}</em></span>
+        <br><a href="#" @click.prevent="goToSession(s.session_id)" style="font-size:12px;color:#005CA9">
+          📋 Открыть переписку сессии
+        </a>
+      </div>
+    </div>
 
-                st.markdown(f"**🤖 Ответ:**")
-                st.markdown(f"> {d['content'][:500]}{'...' if len(d['content']) > 500 else ''}")
-                st.caption(f"Сессия: `{d['session_id'][:8]}`")
-                st.markdown("---")
-
-
-if __name__ == "__main__":
-    main()
+    <div v-if="tab==='keys'">
+      <pre>{{keyStats}}</pre>
+    </div>
+  </div>
+  `
+}).mount('#admin-app');
+</script>
+</body>
+</html>

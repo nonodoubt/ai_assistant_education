@@ -189,7 +189,7 @@ createApp({
       sendIf('likes_max', filters.likes_max);
       sendIf('dislikes_min', filters.dislikes_min);
       sendIf('dislikes_max', filters.dislikes_max);
-      if (filters.directions.length) q.set('directions', filters.directions.join(','));
+      if (filters.directions.length) q.set('directions', filters.directions.join('|'));
       return q.toString();
     }
 
