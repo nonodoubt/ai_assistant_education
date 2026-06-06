@@ -23,7 +23,38 @@ DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 DB_PATH = os.path.join(PROJECT_ROOT, "services", "db", "knowledge.db")
 STATS_FILE = os.path.join(PROJECT_ROOT, "services", "api_key_manager", "key_stats.json")
 CHAT_LOGS_DB = os.path.join(DATA_DIR, "chat_logs.db")
-ADMIN_PASSWORD = "ddt2026"
+
+# ─── Пароль администратора ───
+# Читается из переменной окружения ADMIN_PASSWORD.
+# Задаётся в /etc/systemd/system/ddt-bot.service:
+#   Environment="ADMIN_PASSWORD=ваш-пароль"
+# Запасной вариант (только для локальной разработки):
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ddt2026")
+
+# SECRET_KEY для Flask-сессий. Задайте через переменную окружения в systemd,
+# иначе сессии сбрасываются при каждом перезапуске бота.
+# Сгенерировать: python3 -c "import secrets; print(secrets.token_hex(32))"
+app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(32)
+
+# ─── Flask-сессия ───
+# SECRET_KEY задаётся через переменную окружения, чтобы сессии не сбрасывались
+# при перезапуске и не были предсказуемыми.
+# Сгенерируйте раз: python3 -c "import secrets; print(secrets.token_hex(32))"
+# и пропишите в systemd: Environment="SECRET_KEY=..."
+app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(32)
+
+from functools import wraps
+from flask import session as flask_session
+
+def admin_required(f):
+    """Декоратор: проверяет, что пользователь залогинен в админку.
+    Без авторизованной сессии возвращает 401 — данные не отдаются."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not flask_session.get('is_admin'):
+            return jsonify({'error': 'unauthorized'}), 401
+        return f(*args, **kwargs)
+    return wrapper
 
 QUICK_ANSWERS_PATH = os.path.join(PROJECT_ROOT, "services", "rag", "quick_answers.json")
 QUICK_ANSWERS = {}
@@ -234,15 +265,36 @@ def api_survey():
 # АДМИН API
 # ═══════════════════════════════════════════════════════════════════════════════
 
+from functools import wraps
+
+def admin_required(f):
+    """Проверяет серверную сессию — данные не отдаются без авторизации."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not flask_session.get('is_admin'):
+            return jsonify({'error': 'unauthorized'}), 401
+        return f(*args, **kwargs)
+    return wrapper
+
+
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():
     data = request.json or {}
     if data.get('password') == ADMIN_PASSWORD:
+        flask_session['is_admin'] = True
+        flask_session.permanent = True
         return jsonify({'ok': True})
     return jsonify({'ok': False}), 403
 
 
+@app.route('/api/admin/logout', methods=['POST'])
+def admin_logout():
+    flask_session.pop('is_admin', None)
+    return jsonify({'ok': True})
+
+
 @app.route('/api/admin/stats', methods=['GET'])
+@admin_required
 def admin_stats():
     stats = chat_logger.get_summary_stats()
     avgs = chat_logger.get_survey_averages()
@@ -250,6 +302,7 @@ def admin_stats():
 
 
 @app.route('/api/admin/sessions', methods=['GET'])
+@admin_required
 def admin_sessions():
     """
     Сессии с фильтрами и пагинацией.
@@ -277,7 +330,7 @@ def admin_sessions():
         return v.strip() if v and v.strip() else None
 
     dirs_csv = _str('directions')
-    directions = [d.strip() for d in dirs_csv.split(',')] if dirs_csv else None
+    directions = [d.strip() for d in dirs_csv.split(',') if d.strip()] if dirs_csv else None
 
     page_size = _int('page_size', 15) or 15
     page_size = max(1, min(page_size, 100))
@@ -301,6 +354,7 @@ def admin_sessions():
 
 
 @app.route('/api/admin/directions', methods=['GET'])
+@admin_required
 def admin_directions():
     """Сводка популярности направлений + список доступных названий для фильтра.
     Источник — поле messages.served_directions, заполняемое ботом для тех ответов,
@@ -314,21 +368,25 @@ def admin_directions():
 
 
 @app.route('/api/admin/disliked', methods=['GET'])
+@admin_required
 def admin_disliked():
     return jsonify(chat_logger.get_disliked_messages(limit=50))
 
 
 @app.route('/api/admin/liked', methods=['GET'])
+@admin_required
 def admin_liked():
     return jsonify(chat_logger.get_liked_messages(limit=50))
 
 
 @app.route('/api/admin/surveys', methods=['GET'])
+@admin_required
 def admin_surveys():
     return jsonify(chat_logger.get_surveys(limit=50))
 
 
 @app.route('/api/admin/key_stats', methods=['GET'])
+@admin_required
 def admin_key_stats():
     return jsonify({'report': km.get_stats_report()})
 

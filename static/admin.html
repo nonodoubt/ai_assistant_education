@@ -204,7 +204,16 @@ createApp({
       }
     }
 
-    function applyFilters(){ filters.page = 1; loadSessions(); }
+    function applyFilters(){
+      filters.page = 1;
+      // Обновляем список направлений перед каждым применением фильтра —
+      // так новые направления, которые появились после загрузки страницы,
+      // сразу становятся доступны в чипах (решает баг с единственным вхождением).
+      fetch('/api/admin/directions').then(r=>r.json()).then(j=>{
+        allDirections.value = j.all_directions || [];
+      }).catch(()=>{});
+      loadSessions();
+    }
 
     function resetFilters(){
       filters.date_from=''; filters.date_to='';
@@ -263,7 +272,10 @@ createApp({
       const h = Math.floor(m/60), mm = m%60;
       return h + 'ч ' + mm + 'м';
     }
-    function logout(){authed.value=false;pwd.value='';}
+    function logout(){
+      fetch('/api/admin/logout', {method:'POST'}).catch(()=>{});
+      authed.value=false; pwd.value='';
+    }
     function goToSession(sid){
       tab.value='sessions';
       resetFilters();
