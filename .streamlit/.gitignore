@@ -1,0 +1,34 @@
+# ─── СЕКРЕТЫ — никогда не комитим ───
+services/api_key_manager/api_accounts.xlsx
+services/api_key_manager/key_stats.json
+*.env
+.env.*
+
+# ─── ЛОГИ И ЛОКАЛЬНЫЕ ДАННЫЕ ───
+data/chat_logs.db
+data/chat_logs.db.bak.*
+*.log
+
+# ─── PYTHON ───
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# ─── ОС И РЕДАКТОРЫ ───
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*~
+
+# ─── СБОРКИ И ВРЕМЕННОЕ ───
+build/
+dist/
+*.zip
