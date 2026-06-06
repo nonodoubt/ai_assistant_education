@@ -3,54 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Главная - Дом детского творчества Союз</title>
+<title>Помощник ДДТ «Союз»</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <style>
-/* ═══ ГЛОБАЛЬНЫЕ СТИЛИ (ДДТ СОЮЗ) ═══ */
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Montserrat',sans-serif;color:#1c232e;background:#f5f7fa;line-height:1.6}
+body{font-family:'Montserrat',sans-serif;color:#1c232e;background:#f5f7fa}
 a{color:#005CA9;text-decoration:none}
 a:hover{text-decoration:underline}
-
-/* ═══ ХЕДЕР ═══ */
-.site-topbar{background:#f0f2f5;color:#5a7a9a;font-size:11px;padding:6px 0;border-bottom:1px solid #e0e5ec}
-.site-topbar .container{display:flex;justify-content:space-between;align-items:center}
-.site-header{background:#ffffff;color:#1c232e;padding:20px 0;border-bottom:1px solid #e0e5ec}
-.site-header .container{display:flex;align-items:center;gap:20px;max-width:1200px;margin:0 auto;padding:0 20px}
-.site-logo{height:60px;border-radius:8px}
-.site-header h1{font-size:22px;font-weight:700;color:#003366;line-height:1.3}
-.site-header .subtitle{font-size:13px;color:#5a7a9a;margin-top:2px}
-.site-contacts{margin-left:auto;text-align:right;font-size:13px;color:#1c232e}
-.site-contacts a{color:#005CA9}
-
-/* ═══ НАВИГАЦИЯ ═══ */
-.site-nav{background:#f5f7fa;border-bottom:2px solid #e0e5ec}
-.site-nav .container{max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;padding:0 20px}
-.site-nav a{color:#003366;padding:12px 18px;font-size:13px;font-weight:500;
-  display:block;transition:all 0.2s}
-.site-nav a:hover{background:#005CA9;color:white;text-decoration:none}
-
-/* ═══ КОНТЕНТ ═══ */
-.container{max-width:1200px;margin:0 auto;padding:0 20px}
-.hero{background:linear-gradient(135deg,#e8f0fe 0%,#f0f7ff 100%);padding:48px 0;text-align:center}
-.hero h2{font-size:32px;font-weight:700;color:#003366;margin-bottom:12px}
-.hero p{font-size:16px;color:#5a7a9a;max-width:600px;margin:0 auto}
-.sections{padding:40px 0}
-.sections .container{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
-.card{background:white;border-radius:12px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,0.06);
-  border:1px solid #e8eef5;transition:transform 0.2s}
-.card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,0.1)}
-.card h3{font-size:18px;font-weight:600;color:#003366;margin-bottom:8px}
-.card p{font-size:14px;color:#5a7a9a}
-.card .btn{display:inline-block;margin-top:12px;padding:8px 20px;background:#005CA9;color:white;
-  border-radius:6px;font-size:13px;font-weight:500}
-.card .btn:hover{background:#003366;text-decoration:none}
-
-/* ═══ ФУТЕР ═══ */
-.site-footer{background:#1c232e;color:rgba(255,255,255,0.7);padding:32px 0;margin-top:40px;font-size:13px}
-.site-footer .container{display:flex;justify-content:space-between;flex-wrap:wrap;gap:20px}
-.site-footer a{color:rgba(255,255,255,0.9)}
 
 /* ═══ ЧАТ-ВИДЖЕТ ═══ */
 .widget-btn{
@@ -59,8 +19,6 @@ a:hover{text-decoration:underline}
   font-size:28px;cursor:pointer;box-shadow:0 4px 20px rgba(0,92,169,0.4);
   z-index:9999;transition:transform 0.3s;display:flex;align-items:center;justify-content:center}
 .widget-btn:hover{transform:scale(1.1)}
-.widget-btn .badge{position:absolute;top:-2px;right:-2px;background:#e74c3c;color:white;
-  font-size:11px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center}
 
 .widget-panel{
   position:fixed;bottom:24px;right:24px;width:483px;
@@ -74,7 +32,6 @@ a:hover{text-decoration:underline}
 
 .widget-header{background:linear-gradient(135deg,#4a90c4,#5ba3d9);color:white;
   padding:14px 18px;display:flex;align-items:center;gap:12px}
-.widget-header img{height:36px;border-radius:6px}
 .widget-header .title{font-size:15px;font-weight:600}
 .widget-header .sub{font-size:11px;opacity:0.8}
 .widget-header .close-btn{margin-left:auto;background:none;border:none;color:white;
@@ -125,18 +82,8 @@ a:hover{text-decoration:underline}
   border-radius:6px;font-family:inherit;cursor:pointer;margin-top:6px;font-size:13px}
 .survey-thanks{text-align:center;padding:8px;color:#005CA9;font-size:13px}
 
-/* ═════════════════ EMBED-РЕЖИМ (виджет внутри iframe на чужом сайте) ═════════════════ */
-/* Активируется через ?embed=1 в URL. JS внизу страницы добавляет класс embed на <body>.
-   В этом режиме скрываем «обёртку страницы» и внутреннюю кнопку-пузырь, а саму панель
-   чата раскрываем во весь iframe на прозрачном фоне. Внешняя кнопка-пузырь, которая
-   управляет показом/скрытием iframe, живёт на сайте unionddt.ru. */
+/* ═══ EMBED-РЕЖИМ (?embed=1) ═══ */
 body.embed{background:transparent !important}
-body.embed .site-topbar,
-body.embed .site-header,
-body.embed .site-nav,
-body.embed .hero,
-body.embed .sections,
-body.embed .site-footer,
 body.embed .widget-btn{display:none !important}
 body.embed .widget-panel{
   display:flex !important;
@@ -148,109 +95,6 @@ body.embed .widget-panel{
 </style>
 </head>
 <body>
-
-<!-- ═══════════════════════════════════════════════════ -->
-<!-- СТРАНИЦА ДДТ «СОЮЗ»                              -->
-<!-- ═══════════════════════════════════════════════════ -->
-
-<div class="site-topbar">
-  <div class="container">
-    <span>Государственное бюджетное учреждение дополнительного образования Выборгского района Санкт-Петербурга</span>
-  </div>
-</div>
-
-<header class="site-header">
-  <div class="container">
-    <img src="http://unionddt.ru/wp-content/uploads/2024/08/logo_mal3.png" alt="Логотип" class="site-logo"
-         onerror="this.style.display='none'">
-    <div>
-      <h1>Дом детского творчества «Союз»</h1>
-      <div class="subtitle">Санкт-Петербург, пр. Раевского 5/2</div>
-    </div>
-    <div class="site-contacts">
-      <div><a href="tel:88122412237">☎ 8 (812) 241-22-37</a></div>
-      <div><a href="tel:89958340994">☎ 8 (995) 834-09-94</a></div>
-      <div><a href="mailto:unionddt@mail.ru">✉ unionddt@mail.ru</a></div>
-    </div>
-  </div>
-</header>
-
-<nav class="site-nav">
-  <div class="container">
-    <a href="http://unionddt.ru/">Главная</a>
-    <a href="http://unionddt.ru/svedeniya-ob-oo/">О ДДТ «Союз»</a>
-    <a href="http://unionddt.ru/roditelyam-i-detyam/">Родителям и детям</a>
-    <a href="http://unionddt.ru/tvorcheskaye-napravleniya/">Школьники</a>
-    <a href="http://unionddt.ru/doshkolnikam/">Дошкольники</a>
-    <a href="http://unionddt.ru/zapis-v-kollektivy/">Запись в коллективы</a>
-    <a href="http://unionddt.ru/kontakty/">Контакты</a>
-  </div>
-</nav>
-
-<section class="hero">
-  <div class="container">
-    <h2>Добро пожаловать в «Союз»!</h2>
-    <p>Мы предлагаем более 30 программ дополнительного образования для детей от 3 до 18 лет</p>
-  </div>
-</section>
-
-<section class="sections">
-  <div class="container">
-    <div class="card">
-      <h3>🎨 Творческие направления</h3>
-      <p>ИЗО, керамика, дизайн одежды, компьютерная графика, каллиграфия</p>
-      <a href="http://unionddt.ru/tvorcheskaye-napravleniya/" class="btn">Подробнее →</a>
-    </div>
-    <div class="card">
-      <h3>💃 Хореография</h3>
-      <p>Народные танцы, брейк-данс, бальные танцы, спортивные танцы</p>
-      <a href="http://unionddt.ru/tvorcheskaye-napravleniya/" class="btn">Подробнее →</a>
-    </div>
-    <div class="card">
-      <h3>🎤 Вокал и театр</h3>
-      <p>Вокальные студии, театральная студия «Образ»</p>
-      <a href="http://unionddt.ru/tvorcheskaye-napravleniya/" class="btn">Подробнее →</a>
-    </div>
-    <div class="card">
-      <h3>♟ Шахматы</h3>
-      <p>«Белый ферзь», «Дебют», «Е2-Е4» — для детей от 4 лет</p>
-      <a href="http://unionddt.ru/tvorcheskaye-napravleniya/" class="btn">Подробнее →</a>
-    </div>
-    <div class="card">
-      <h3>📷 Фото и видео</h3>
-      <p>Студия «Открытый взгляд», компьютерный дизайн «Арт-студия»</p>
-      <a href="http://unionddt.ru/tvorcheskaye-napravleniya/" class="btn">Подробнее →</a>
-    </div>
-    <div class="card">
-      <h3>👶 Для дошкольников</h3>
-      <p>Комплексные модули: хореография + вокал + шахматы, ИЗО + театр + подготовка к школе</p>
-      <a href="http://unionddt.ru/doshkolnikam/" class="btn">Подробнее →</a>
-    </div>
-  </div>
-</section>
-
-<footer class="site-footer">
-  <div class="container">
-    <div>
-      <strong>ГБУ ДО ДДТ «Союз»</strong><br>
-      194064, Санкт-Петербург, пр. Раевского, 5/2<br>
-      пр. М. Тореза, 35/1
-    </div>
-    <div>
-      <a href="tel:88122412237">8 (812) 241-22-37</a><br>
-      <a href="tel:89958340994">8 (995) 834-09-94</a><br>
-      <a href="mailto:unionddt@mail.ru">unionddt@mail.ru</a>
-    </div>
-    <div>
-      <a href="https://vk.com/ddtsouz" target="_blank">ВКонтакте</a><br>
-      © 2025 ДДТ «Союз»
-    </div>
-  </div>
-</footer>
-
-<!-- ═══════════════════════════════════════════════════ -->
-<!-- ЧАТ-ВИДЖЕТ (Vue.js)                              -->
-<!-- ═══════════════════════════════════════════════════ -->
 
 <div id="chat-widget"></div>
 
@@ -265,17 +109,13 @@ const QUICK_QUESTIONS = [
   {label: 'Платные для дошкольников', value: 'Платные занятия для дошкольников'},
 ];
 
-const { createApp, ref, nextTick, onMounted } = Vue;
+const { createApp, ref, nextTick } = Vue;
 
 createApp({
   setup() {
-    // Режим embed: страница загружена в iframe с ?embed=1 в URL.
-    // В этом режиме CSS прячет «обёртку» страницы и встроенную кнопку,
-    // а панель чата раскрывается на весь iframe. Видимостью самого iframe
-    // управляет внешняя кнопка на сайте unionddt.ru.
     const isEmbed = new URLSearchParams(window.location.search).get('embed') === '1';
     if (isEmbed) document.body.classList.add('embed');
-    const open = ref(isEmbed);  // в embed — всегда «открыт»
+    const open = ref(isEmbed);
     const messages = ref([{role:'bot', content:GREETING, logId:null, feedback:null}]);
     const input = ref('');
     const loading = ref(false);
@@ -293,7 +133,6 @@ createApp({
         .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
         .replace(/\*(.*?)\*/g,'<em>$1</em>')
         .replace(/\[(.*?)\]\((.*?)\)/g,'<a href="$2" target="_blank">$1</a>')
-        // Авто-ссылки для голых URL (после markdown-ссылок чтобы не задвоить)
         .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g,'$1<a href="$2" target="_blank">$2</a>')
         .replace(/^- (.*)/gm,'<li>$1</li>')
         .replace(/(<li>[\s\S]*?<\/li>)/g,'<ul>$1</ul>')
@@ -304,8 +143,7 @@ createApp({
     async function send(text){
       if(!text||!text.trim()||loading.value) return;
       const msg = text.trim();
-      if(msg!=='__ask_school__'&&msg!=='__ask_signup__'&&msg!=='__doshkol__'&&msg!=='__navigator__')
-        messages.value.push({role:'user',content:msg});
+      messages.value.push({role:'user',content:msg});
       input.value='';
       loading.value=true;
       scrollDown();
@@ -349,13 +187,11 @@ createApp({
             md,send,sendInput,sendQuick,toggleFb,clearChat,submitSurvey,QUICK_QUESTIONS};
   },
   template: `
-    <!-- Кнопка виджета -->
     <button class="widget-btn" @click="open=!open" :title="open?'Закрыть':'Помощник ДДТ Союз'">
       <span v-if="!open">💬</span>
       <span v-else>✕</span>
     </button>
 
-    <!-- Панель чата -->
     <div v-if="open" class="widget-panel">
       <div class="widget-header">
         <div>
@@ -366,14 +202,12 @@ createApp({
         <button class="close-btn" @click="open=false">✕</button>
       </div>
 
-      <!-- Быстрые вопросы -->
       <div class="quick-row">
         <button v-for="q in QUICK_QUESTIONS" :key="q.label" class="quick-tag" @click="sendQuick(q)">
           {{q.label}}
         </button>
       </div>
 
-      <!-- Сообщения -->
       <div class="widget-messages" ref="msgsEl">
         <div v-for="(m,i) in messages" :key="i" :class="['msg', m.role==='user'?'msg-user':'msg-bot']">
           <div v-html="md(m.content)"></div>
@@ -385,7 +219,6 @@ createApp({
         <div v-if="loading" class="msg msg-bot"><span class="typing">Ищу ответ...</span></div>
       </div>
 
-      <!-- Опрос -->
       <div v-if="!surveyDone" class="survey-toggle" @click="surveyOpen=!surveyOpen">
         📝 Обратная связь {{surveyOpen?'▲':'▼'}}
       </div>
@@ -398,7 +231,6 @@ createApp({
       </div>
       <div v-if="surveyDone" class="survey-thanks">Спасибо за отзыв! 🙏</div>
 
-      <!-- Ввод -->
       <div class="widget-input">
         <input v-model="input" @keyup.enter="sendInput" placeholder="Задайте вопрос..." :disabled="loading">
         <button @click="sendInput" :disabled="loading||!input.trim()">➤</button>

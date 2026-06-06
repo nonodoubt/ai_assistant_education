@@ -23,7 +23,7 @@ DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 DB_PATH = os.path.join(PROJECT_ROOT, "services", "db", "knowledge.db")
 STATS_FILE = os.path.join(PROJECT_ROOT, "services", "api_key_manager", "key_stats.json")
 CHAT_LOGS_DB = os.path.join(DATA_DIR, "chat_logs.db")
-ADMIN_PASSWORD = "ddt2025"
+ADMIN_PASSWORD = "ddt2026"
 
 QUICK_ANSWERS_PATH = os.path.join(PROJECT_ROOT, "services", "rag", "quick_answers.json")
 QUICK_ANSWERS = {}
