@@ -29,7 +29,7 @@ CHAT_LOGS_DB = os.path.join(DATA_DIR, "chat_logs.db")
 # Задаётся в /etc/systemd/system/ddt-bot.service:
 #   Environment="ADMIN_PASSWORD=ваш-пароль"
 # Запасной вариант (только для локальной разработки):
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ddt2026")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ddt2025")
 
 # SECRET_KEY для Flask-сессий. Задайте через переменную окружения в systemd,
 # иначе сессии сбрасываются при каждом перезапуске бота.
@@ -330,7 +330,7 @@ def admin_sessions():
         return v.strip() if v and v.strip() else None
 
     dirs_csv = _str('directions')
-    directions = [d.strip() for d in dirs_csv.split(',') if d.strip()] if dirs_csv else None
+    directions = [d.strip() for d in dirs_csv.split('|') if d.strip()] if dirs_csv else None
 
     page_size = _int('page_size', 15) or 15
     page_size = max(1, min(page_size, 100))
