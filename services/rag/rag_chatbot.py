@@ -320,96 +320,27 @@ class RAGChatbot:
 
     # ─── Категория C: FAQ из БД ───
 
-    # Порог уверенности для семантического FAQ-роутинга.
-    # vec score = 1 - cosine_distance (нормированные эмбеддинги bge-m3 / e5).
-    # 0.78 = очень похоже по смыслу. Эмпирически: "Где вы находитесь?" ↔ "где вы
-    # находитесь" ~0.95; "Сколько стоит занятие?" ↔ "цена за месяц" ~0.82;
-    # "Кто ты?" ↔ "ты бот?" ~0.80 (если в FAQ есть identity-запись).
-    # Несвязанные запросы типа "мальчик 4 года шахматы" ↔ любой FAQ редко >0.7.
-    FAQ_SEMANTIC_THRESHOLD = 0.78
-
     def _try_faq_search(self, text):
-        """
-        Гибридный FAQ-роутинг: keyword-якоря + семантический score.
-
-        Решение, выдавать ли FAQ-ответ, принимается СЕМАНТИЧЕСКИ, а не по списку
-        подстрок. Так покрываются формулировки, которые keyword-паттерны не
-        ловят («где ВЫ находитесь», «можно с ребёнком на занятии», «вы кто»),
-        и при этом не вываливаются программы на мета-вопросы.
-
-        Условие выдачи FAQ:
-          • есть keyword-матч в faq_kws → как раньше (быстрый путь);
-          • ИЛИ топ-1 FAQ по вектору score ≥ FAQ_SEMANTIC_THRESHOLD
-            И запрос не выглядит как поиск программы (нет распознанного
-            направления, нет числового возраста).
-        """
         faq_kws = detect_faq_keywords(text)
-
-        # Площадки обработаны в категории A — не дублируем
-        if 'площадки' in faq_kws:
+        if not faq_kws or 'площадки' in faq_kws:  # площадки уже обработаны в A
             return None
 
-        # Быстрый путь: keyword-якорь
-        if faq_kws:
-            faq_kws_sorted = sorted(faq_kws, key=len, reverse=True)
-            all_faq = []
-            seen_ids = set()
-            for kw in faq_kws_sorted:
-                items = search_faq(self.db_path, [kw], limit=2, query_text=text)
-                for item in items:
-                    if item['id'] not in seen_ids:
-                        all_faq.append(item)
-                        seen_ids.add(item['id'])
-            if all_faq:
-                self.logger.debug("FAQ keyword: %d по ключам %s"
-                                  % (len(all_faq), faq_kws))
-                return self._respond_with_programs([], all_faq[:3])
+        # Сортируем: специфичные ключи первыми
+        faq_kws_sorted = sorted(faq_kws, key=len, reverse=True)
+        all_faq = []
+        seen_ids = set()
+        for kw in faq_kws_sorted:
+            items = search_faq(self.db_path, [kw], limit=2, query_text=text)
+            for item in items:
+                if item['id'] not in seen_ids:
+                    all_faq.append(item)
+                    seen_ids.add(item['id'])
 
-        # Семантический путь: запускаем ТОЛЬКО когда нет признаков поиска
-        # программы. Иначе «4 года шахматы» может семантически зацепиться
-        # за FAQ «С какого возраста можно записаться» — нежелательно.
-        from services.preprocessor.preprocessor import (
-            quick_extract_age, extract_significant_words,
-        )
-        has_direction = bool(detect_directions(text, SYNONYM_MAP, CATEGORY_MAP))
-        has_age = quick_extract_age(text) is not None
-        if has_direction or has_age:
+        if not all_faq:
             return None
 
-        # Считаем семантическую близость к FAQ
-        try:
-            from services.rag.search import _vector_search_faq
-            vec_scores = _vector_search_faq(self.db_path, text, limit=3)
-        except Exception as e:
-            self.logger.debug("FAQ vector недоступен: %s" % str(e)[:80])
-            return None
-        if not vec_scores:
-            return None
-
-        top_id, top_score = max(vec_scores.items(), key=lambda kv: kv[1])
-        self.logger.debug("FAQ semantic: top score=%.3f (threshold=%.2f)"
-                          % (top_score, self.FAQ_SEMANTIC_THRESHOLD))
-        if top_score < self.FAQ_SEMANTIC_THRESHOLD:
-            return None
-
-        # Достаём FAQ-запись
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
-        ids = sorted(vec_scores.keys(), key=lambda i: -vec_scores[i])[:2]
-        ph = ','.join('?' * len(ids))
-        cur.execute('SELECT * FROM faq WHERE id IN (%s)' % ph, ids)
-        rows = [dict(r) for r in cur.fetchall()]
-        conn.close()
-        # Берём только записи выше порога
-        faq_items = [r for r in rows
-                     if vec_scores.get(r['id'], 0) >= self.FAQ_SEMANTIC_THRESHOLD]
-        if not faq_items:
-            return None
-        # Сортируем в порядке убывания score
-        faq_items.sort(key=lambda r: -vec_scores.get(r['id'], 0))
-        self.logger.debug("FAQ semantic: выдано %d записей" % len(faq_items))
-        return self._respond_with_programs([], faq_items[:2])
+        self.logger.debug("FAQ найдено: %d по ключам %s" % (len(all_faq), faq_kws))
+        return self._respond_with_programs([], all_faq[:3])
 
     # ─── Категория D: Локальный сбор ───
 
@@ -832,22 +763,16 @@ class RAGChatbot:
         Каскад моделей сам переключается между моделями/ключами при ошибках,
         поэтому шаблонный ответ используется ТОЛЬКО если ВСЕ модели реально
         недоступны (крайний случай).
-
-        Побочный эффект: записывает в self.last_served_directions список
-        направлений тех программ, что попали в ответ. Используется server.py
-        для логирования (фильтр админки «по направлениям» работает по этому
-        полю, а не по keywords запроса).
         """
         if faq_items is None:
             faq_items = []
         faq_items = faq_items[:2]
-        # Запоминаем направления реально выданных программ (нормализация: strip)
+        # Запоминаем направления реально выданных программ (для фильтра админки)
         served = []
         for p in (programs or []):
             d = (p.get('direction') or '').strip() if isinstance(p, dict) else ''
             if d:
                 served.append(d)
-        # Накапливаем за весь process_message (вдруг будет несколько вызовов)
         prev = getattr(self, 'last_served_directions', None) or []
         self.last_served_directions = sorted(set(prev + served))
         try:
@@ -919,8 +844,8 @@ class RAGChatbot:
 
     def process_message(self, user_message):
         text = user_message.strip()
-        # Сбрасываем трекер выданных направлений на каждый ход (server.py читает
-        # его после возврата из process_message и передаёт в log_message).
+        # Сбрасываем трекер выданных направлений (server.py читает его
+        # после возврата и передаёт в log_message для фильтра админки).
         self.last_served_directions = []
         # Сброс/замена состояния при новом возрасте или новом направлении (до истории)
         self._maybe_reset_state(text)

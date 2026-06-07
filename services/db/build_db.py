@@ -123,6 +123,50 @@ def load_faq(filepath):
 
 def create_database(programs_path, faq_path, db_path='knowledge.db'):
     """Основная функция: создаёт БД, заполняет данные, строит FTS5 индекс."""
+
+    # ─── Валидация programs.xlsx перед сборкой ───
+    validate_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'validate_programs.py')
+    if os.path.exists(validate_path):
+        validator_dir = os.path.dirname(validate_path)
+        sys.path.insert(0, validator_dir)
+        from validate_programs import validate
+        sys.path.pop(0)
+
+        print("─" * 60)
+        print("  Валидация programs.xlsx")
+        print("─" * 60)
+        errors, warnings, infos = validate(programs_path)
+
+        if errors:
+            print()
+            print(f"🛑 Найдено {len(errors)} ошибок:")
+            for e in errors:
+                print(f"   ❌ {e}")
+            if warnings:
+                print()
+                print(f"⚠️  Также {len(warnings)} предупреждений:")
+                for w in warnings:
+                    print(f"   ⚠️  {w}")
+            print()
+            print("🛑 Сборка БД ОТМЕНЕНА. Исправьте ошибки и запустите снова.")
+            print("   (БД не была изменена)")
+            sys.exit(1)
+
+        if warnings:
+            print()
+            for w in warnings:
+                print(f"   ⚠️  {w}")
+            print()
+            print(f"⚠️  {len(warnings)} предупреждений (не блокируют сборку).")
+            print("   Рекомендуется проверить. Продолжаем сборку...")
+        else:
+            print("   ✅ Валидация пройдена без ошибок.")
+        print("─" * 60)
+        print()
+    else:
+        print("⚠️  Валидатор services/db/validate_programs.py не найден — пропускаем проверку.")
+        print()
+
     if os.path.exists(db_path):
         os.remove(db_path)
 
