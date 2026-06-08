@@ -179,6 +179,7 @@ class RAGChatbot:
         self._teacher_tokens = _load_teacher_names(db_path)
         self._program_names = _load_program_names(db_path)
         self._last_query = ""
+        self._last_alternatives = []  # альтернативы из последнего ответа
         self.logger.debug("Бот инициализирован: %d токенов ФИО, %d названий программ" %
                           (len(self._teacher_tokens), len(self._program_names)))
 
@@ -562,7 +563,8 @@ class RAGChatbot:
                             continue
                         seen.add(key)
                         lines.append("• **%s** — %s, %s" % (name, direction, age_str))
-                    lines.append("\nХотите узнать подробнее о какой-то программе?")
+                    self._last_alternatives = alternatives
+                    lines.append("\nНапишите название программы, чтобы узнать подробнее.")
                     return '\n'.join(lines)
                 ranges = []
                 for p in base:
@@ -947,6 +949,19 @@ class RAGChatbot:
             response = self._try_instant(text)
             if response:
                 return self._finalize(response, "A:instant")
+
+            # ─── A2: Короткое «да»/«подробнее» после предложения альтернатив ───
+            _short_yes = text.lower().strip(' ?!.') in (
+                'да', 'ага', 'угу', 'ок', 'хочу', 'давай', 'конечно',
+                'подробнее', 'расскажи', 'расскажите', 'подробней')
+            if _short_yes and self._last_alternatives:
+                self.logger.debug("Короткое подтверждение → раскрываем альтернативы")
+                response = self._respond_with_programs(self._last_alternatives)
+                self._last_alternatives = []
+                return self._finalize(response, "A2:alternatives_detail")
+            # Если не «да» — сбрасываем стейл альтернатив
+            if not _short_yes:
+                self._last_alternatives = []
 
             # ─── B: ФИО педагога / название программы (1 LLM) ───
             response = self._try_name_search(text)
