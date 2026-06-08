@@ -548,7 +548,22 @@ class RAGChatbot:
                     self.logger.debug(
                         "Нет %s для %d лет, но есть %d альтернатив других направлений"
                         % (tag, age, len(alternatives)))
-                    return self._respond_with_programs(alternatives)
+                    # Формируем ответ напрямую (без LLM), чтобы ясно объяснить
+                    # что запрошенного направления для этого возраста нет.
+                    lines = ["К сожалению, программ по направлению «%s» для %d лет у нас нет.\n"
+                             "Но для вашего возраста доступны другие направления:\n" % (tag, age)]
+                    seen = set()
+                    for p in alternatives:
+                        name = (p.get('name') or '?').strip()
+                        direction = (p.get('direction') or '').strip()
+                        age_str = (p.get('age_str') or '').strip()
+                        key = name + direction
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        lines.append("• **%s** — %s, %s" % (name, direction, age_str))
+                    lines.append("\nХотите узнать подробнее о какой-то программе?")
+                    return '\n'.join(lines)
                 ranges = []
                 for p in base:
                     a = (p.get('age_str') or '').strip()
