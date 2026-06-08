@@ -285,7 +285,7 @@ def _vector_search_programs(db_path, query_text, limit=10):
 
         results = {}
         for row in cur.fetchall():
-            results[row[0]] = max(0, 1.0 - row[1])
+            results[row[0]] = max(0, 1.0 - row[1] ** 2 / 2.0)  # L2 → cosine similarity
         conn.close()
         # Это пул кандидатов (k ближайших), а НЕ итоговые совпадения. kNN всегда
         # возвращает свои top-k; что из них релевантно — решает гейт ниже.
@@ -313,7 +313,7 @@ def _vector_search_faq(db_path, query_text, limit=5):
             SELECT rowid, distance FROM vec_faq
             WHERE embedding MATCH ? ORDER BY distance LIMIT ?
         """, (_serialize_f32(query_emb), limit))
-        results = {row[0]: max(0, 1.0 - row[1]) for row in cur.fetchall()}
+        results = {row[0]: max(0, 1.0 - row[1] ** 2 / 2.0) for row in cur.fetchall()}  # L2 → cosine
         conn.close()
         return results
     except Exception:
@@ -554,8 +554,7 @@ def format_results_for_llm(programs, faq_items):
     if faq_items:
         parts.append("=== FAQ ===\n")
         for item in faq_items:
-            parts.append("В: %s" % item['question'])
-            parts.append("О: %s" % item['answer'])
+            parts.append(item['answer'])
             parts.append("")
     if not parts:
         return "Ничего не найдено в базе знаний."
@@ -637,7 +636,6 @@ def format_results_markdown(programs, faq_items):
         if programs:
             parts.append("---\n")
         for item in faq_items:
-            parts.append("**%s**\n" % item.get('question', ''))
             parts.append("%s\n" % item.get('answer', ''))
 
     #if has_preschool:

@@ -320,27 +320,83 @@ class RAGChatbot:
 
     # ─── Категория C: FAQ из БД ───
 
+    # ─── Категория C: FAQ из БД ───
+
+    FAQ_SEMANTIC_THRESHOLD = 0.78
+
     def _try_faq_search(self, text):
+        """
+        Гибридный FAQ-роутинг: keyword-якоря + семантический score.
+
+        Быстрый путь: если detect_faq_keywords нашёл совпадение — отдаём FAQ.
+        Семантический путь: если keyword-якоря нет И запрос не похож на поиск
+        программы (нет направления, нет возраста) — считаем vec-score к FAQ.
+        Если top-1 score ≥ порога — отдаём FAQ.
+
+        Так покрываются формулировки «ты бот?», «где вы находитесь»,
+        «можно с ребёнком на занятии» без перечисления сотен паттернов.
+        """
         faq_kws = detect_faq_keywords(text)
-        if not faq_kws or 'площадки' in faq_kws:  # площадки уже обработаны в A
+
+        # Площадки обработаны в категории A — не дублируем
+        if 'площадки' in faq_kws:
             return None
 
-        # Сортируем: специфичные ключи первыми
-        faq_kws_sorted = sorted(faq_kws, key=len, reverse=True)
-        all_faq = []
-        seen_ids = set()
-        for kw in faq_kws_sorted:
-            items = search_faq(self.db_path, [kw], limit=2, query_text=text)
-            for item in items:
-                if item['id'] not in seen_ids:
-                    all_faq.append(item)
-                    seen_ids.add(item['id'])
+        # Быстрый путь: keyword-якорь
+        if faq_kws:
+            faq_kws_sorted = sorted(faq_kws, key=len, reverse=True)
+            all_faq = []
+            seen_ids = set()
+            for kw in faq_kws_sorted:
+                items = search_faq(self.db_path, [kw], limit=2, query_text=text)
+                for item in items:
+                    if item['id'] not in seen_ids:
+                        all_faq.append(item)
+                        seen_ids.add(item['id'])
+            if all_faq:
+                self.logger.debug("FAQ keyword: %d по ключам %s"
+                                  % (len(all_faq), faq_kws))
+                return self._respond_with_programs([], all_faq[:1])
 
-        if not all_faq:
+        # Семантический путь: только когда нет признаков поиска программы
+        has_direction = bool(detect_directions(text, SYNONYM_MAP, CATEGORY_MAP))
+        has_age = quick_extract_age(text) is not None
+        if has_direction or has_age:
             return None
 
-        self.logger.debug("FAQ найдено: %d по ключам %s" % (len(all_faq), faq_kws))
-        return self._respond_with_programs([], all_faq[:3])
+        # Считаем семантическую близость к FAQ
+        try:
+            from services.rag.search import _vector_search_faq
+            vec_scores = _vector_search_faq(self.db_path, text, limit=3)
+        except Exception as e:
+            self.logger.debug("FAQ vector недоступен: %s" % str(e)[:80])
+            return None
+        if not vec_scores:
+            return None
+
+        top_id, top_score = max(vec_scores.items(), key=lambda kv: kv[1])
+        self.logger.debug("FAQ semantic: top score=%.3f (threshold=%.2f)"
+                          % (top_score, self.FAQ_SEMANTIC_THRESHOLD))
+        if top_score < self.FAQ_SEMANTIC_THRESHOLD:
+            return None
+
+        # Достаём FAQ-запись
+        import sqlite3
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        ids = sorted(vec_scores.keys(), key=lambda i: -vec_scores[i])[:2]
+        ph = ','.join('?' * len(ids))
+        cur.execute('SELECT * FROM faq WHERE id IN (%s)' % ph, ids)
+        rows = [dict(r) for r in cur.fetchall()]
+        conn.close()
+        faq_items = [r for r in rows
+                     if vec_scores.get(r['id'], 0) >= self.FAQ_SEMANTIC_THRESHOLD]
+        if not faq_items:
+            return None
+        faq_items.sort(key=lambda r: -vec_scores.get(r['id'], 0))
+        self.logger.debug("FAQ semantic: выдано %d записей" % len(faq_items))
+        return self._respond_with_programs([], faq_items[:1])
 
     # ─── Категория D: Локальный сбор ───
 
@@ -475,6 +531,24 @@ class RAGChatbot:
         if age is not None:
             fits_age = [p for p in base if self._age_fits(p, age)]
             if not fits_age:
+                # Направление есть, но возраст не подходит.
+                # Пробуем найти ЛЮБЫЕ программы для этого возраста (без фильтра
+                # по направлению) — чтобы предложить альтернативы.
+                import sqlite3 as _sql
+                _conn = _sql.connect(self.db_path)
+                _conn.row_factory = _sql.Row
+                alt_rows = _conn.execute(
+                    "SELECT * FROM programs WHERE age_min <= ? AND age_max >= ? LIMIT 10",
+                    (age, age)
+                ).fetchall()
+                _conn.close()
+                alternatives = [dict(r) for r in alt_rows]
+
+                if alternatives:
+                    self.logger.debug(
+                        "Нет %s для %d лет, но есть %d альтернатив других направлений"
+                        % (tag, age, len(alternatives)))
+                    return self._respond_with_programs(alternatives)
                 ranges = []
                 for p in base:
                     a = (p.get('age_str') or '').strip()
@@ -482,8 +556,9 @@ class RAGChatbot:
                         ranges.append(a)
                 ranges_str = ', '.join(ranges) if ranges else 'другой возраст'
                 self.logger.debug("Несоответствие ВОЗРАСТА (%s): есть на %s" % (age, ranges_str))
-                return ("К сожалению, у нас нет такой программы для этого возраста. "
-                        "Есть для возраста: %s." % ranges_str)
+                return ("К сожалению, наши программы рассчитаны на детей до 16 лет. "
+                        "Уточнить возможные варианты можно по телефону: "
+                        "8 995 834 09 94 (ПН-ПТ с 11 до 19ч).")
         else:
             fits_age = base
 
