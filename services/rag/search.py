@@ -285,7 +285,7 @@ def _vector_search_programs(db_path, query_text, limit=10):
 
         results = {}
         for row in cur.fetchall():
-            results[row[0]] = max(0, 1.0 - row[1] ** 2 / 2.0)  # L2 → cosine similarity
+            results[row[0]] = max(0, 1.0 - row[1])
         conn.close()
         # Это пул кандидатов (k ближайших), а НЕ итоговые совпадения. kNN всегда
         # возвращает свои top-k; что из них релевантно — решает гейт ниже.
@@ -313,7 +313,7 @@ def _vector_search_faq(db_path, query_text, limit=5):
             SELECT rowid, distance FROM vec_faq
             WHERE embedding MATCH ? ORDER BY distance LIMIT ?
         """, (_serialize_f32(query_emb), limit))
-        results = {row[0]: max(0, 1.0 - row[1] ** 2 / 2.0) for row in cur.fetchall()}  # L2 → cosine
+        results = {row[0]: max(0, 1.0 - row[1]) for row in cur.fetchall()}
         conn.close()
         return results
     except Exception:
@@ -554,7 +554,8 @@ def format_results_for_llm(programs, faq_items):
     if faq_items:
         parts.append("=== FAQ ===\n")
         for item in faq_items:
-            parts.append(item['answer'])
+            parts.append("В: %s" % item['question'])
+            parts.append("О: %s" % item['answer'])
             parts.append("")
     if not parts:
         return "Ничего не найдено в базе знаний."
@@ -620,8 +621,13 @@ def format_results_markdown(programs, faq_items):
                 parts.append("- *Что нужно: %s*" % first['requirements'])
             if first.get('teacher'):
                 parts.append("- Педагог: %s" % first['teacher'])
-            if first.get('signup_url'):
-                parts.append("- [Записаться](%s)" % first['signup_url'])
+            signup = (first.get('signup_url') or '').strip()
+            if signup:
+                if signup.startswith('http://') or signup.startswith('https://'):
+                    parts.append("- [Записаться](%s)" % signup)
+                else:
+                    # в поле записи не ссылка, а текст (например «по телефону …»)
+                    parts.append("- Запись: %s" % signup)
 
             for p in group:
                 try:
@@ -636,15 +642,16 @@ def format_results_markdown(programs, faq_items):
         if programs:
             parts.append("---\n")
         for item in faq_items:
+            parts.append("**%s**\n" % item.get('question', ''))
             parts.append("%s\n" % item.get('answer', ''))
 
-    #if has_preschool:
-    #    parts.append("\n**Записаться на занятия:** https://forms.gle/NeUTe4nh5PQDvFMg7")
-    #    parts.append("**Более подробная информация по телефону:** 8 995 834 09 94 (ПН-ПТ с 11 до 19ч)")
+    if has_preschool:
+        parts.append("\n**Записаться на занятия:** https://forms.gle/NeUTe4nh5PQDvFMg7")
+        parts.append("**Более подробная информация по телефону:** 8 995 834 09 94 (ПН-ПТ с 11 до 19ч)")
 
     if not parts:
         return ("К сожалению, ничего не найдено. Уточните на нашем сайте "
-                "https://unionddt.ru"
+                "https://unionddt.ru/roditelyam-i-detyam/ "
                 "или по телефону: 8 995 834 09 94 (ПН-ПТ с 11 до 19ч).")
 
     return '\n'.join(parts)
