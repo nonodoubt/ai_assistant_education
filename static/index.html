@@ -92,6 +92,11 @@ body.embed .widget-panel{
   width:100% !important;height:100% !important;max-height:none !important;
   border-radius:0 !important;box-shadow:none !important;
 }
+
+/* ═══ FULLPAGE — отдельная страница на всё окно (botbot.unionddt.ru) ═══ */
+/* Переиспользует embed-раскладку (панель на весь контейнер), но это
+   самостоятельная страница, поэтому фон непрозрачный, а не overlay. */
+body.fullpage{background:#eef2f7 !important}
 </style>
 </head>
 <body>
@@ -113,9 +118,17 @@ const { createApp, ref, nextTick } = Vue;
 
 createApp({
   setup() {
-    const isEmbed = new URLSearchParams(window.location.search).get('embed') === '1';
-    if (isEmbed) document.body.classList.add('embed');
-    const open = ref(isEmbed);
+    const params = new URLSearchParams(window.location.search);
+    const isEmbed = params.get('embed') === '1';
+    // Отдельная страница «на всё окно»: по выделенному поддомену или явному флагу.
+    const FULLPAGE_HOSTS = ['vkbot.unionddt.ru', 'botbot.unionddt.ru'];
+    const isFullpage = params.get('fullpage') === '1'
+                       || FULLPAGE_HOSTS.includes(window.location.hostname);
+    // Оба режима используют одну раскладку «панель на весь контейнер».
+    const isFull = isEmbed || isFullpage;
+    if (isFull) document.body.classList.add('embed');
+    if (isFullpage) document.body.classList.add('fullpage');  // непрозрачный фон страницы
+    const open = ref(isFull);
     const messages = ref([{role:'bot', content:GREETING, logId:null, feedback:null}]);
     const input = ref('');
     const loading = ref(false);
